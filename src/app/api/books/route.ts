@@ -1,38 +1,37 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/app/lib/prisma'
 
-interface RouteParams {
-    params: Promise<{ id: string }>
-}
-
 // GET - Obtener todos los libros
-export async function GET(
-    request: Request,
-    { params }: RouteParams
-) {
+export async function GET(request: Request) {
     try {
-        // Desenvolver la promesa de params con await
-        const { id } = await params
+        const { searchParams } = new URL(request.url)
+        const genre = searchParams.get('genre')
+        const authorId = searchParams.get('authorId')
 
-        const book = await prisma.book.findUnique({
-            where: { id },
+        const books = await prisma.book.findMany({
+            where: {
+                ...(genre && { genre }),
+                ...(authorId && { authorId }),
+            },
             include: {
-                author: true,
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
             },
         })
 
-        if (!book) {
-            return NextResponse.json(
-                { error: 'Libro no encontrado' },
-                { status: 404 }
-            )
-        }
-
-        return NextResponse.json(book)
+        return NextResponse.json(books)
     } catch (error) {
-        console.error('Error al obtener el libro:', error)
+        console.error('Error en GET /api/books:', error)
         return NextResponse.json(
-            { error: 'Error al obtener el libro' },
+            { error: 'Error al obtener libros' },
             { status: 500 }
         )
     }
